@@ -1,13 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-# --------------------------------------------------------
-# References:
-# DeiT: https://github.com/facebookresearch/deit
-# BEiT: https://github.com/microsoft/unilm/tree/master/beit
-# --------------------------------------------------------
 import argparse
 import datetime
 import json
@@ -24,7 +14,7 @@ import torchvision.datasets as datasets
 
 import timm
 
-assert timm.__version__ == "0.3.2"  # version check
+# assert timm.__version__ == "0.3.2"  # version check
 import timm.optim.optim_factory as optim_factory
 
 import util.misc as misc
@@ -44,10 +34,10 @@ def get_args_parser():
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
     # Model parameters
-    parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
+    parser.add_argument('--model', default='mae_vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
 
-    parser.add_argument('--input_size', default=224, type=int,
+    parser.add_argument('--input_size', default=32, type=int, 
                         help='images input size')
 
     parser.add_argument('--mask_ratio', default=0.75, type=float,
@@ -73,7 +63,7 @@ def get_args_parser():
 
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
-                        help='dataset path')
+                        help='dataset path') 
 
     parser.add_argument('--output_dir', default='./output_dir',
                         help='path where to save, empty for no saving')
@@ -93,7 +83,6 @@ def get_args_parser():
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
     parser.set_defaults(pin_mem=True)
 
-    # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--local_rank', default=-1, type=int)
@@ -112,23 +101,21 @@ def main(args):
 
     device = torch.device(args.device)
 
-    # fix the seed for reproducibility
     seed = args.seed + misc.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
 
     cudnn.benchmark = True
 
-    # simple augmentation
     transform_train = transforms.Compose([
-            transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
+            transforms.Resize((args.input_size,args.input_size)), 
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    dataset_train = datasets.ImageFolder(os.path.join(args.data_path, 'train'), transform=transform_train)
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]) 
+    dataset_train = datasets.CIFAR10(args.data_path, train=True, download=False, transform=transform_train) 
     print(dataset_train)
-
-    if True:  # args.distributed:
+    
+    if True: 
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()
         sampler_train = torch.utils.data.DistributedSampler(
@@ -152,8 +139,7 @@ def main(args):
         drop_last=True,
     )
     
-    # define the model
-    model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss)
+    model = models_mae.__dict__[args.model](norm_pix_loss=args.norm_pix_loss) 
 
     model.to(device)
 
